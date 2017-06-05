@@ -1,0 +1,53 @@
+# Copyright (c) 2015-2016, Gregory M. Kurtzer. All rights reserved.
+# 
+# "Singularity" Copyright (c) 2016, The Regents of the University of California,
+# through Lawrence Berkeley National Laboratory (subject to receipt of any
+# required approvals from the U.S. Dept. of Energy).  All rights reserved.
+
+BootStrap: docker
+From: library/ubuntu:xenial
+IncludeCmd: yes
+
+
+%environment
+LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/NVIDIA-Linux-x86_64-375.66:$LD_LIBRARY_PATH
+PATH=/usr/local/NVIDIA-Linux-x86_64-375.66:/anaconda3/bin:$PATH
+
+
+%setup
+cp "cudnn-8.0-linux-x64-v6.0.tgz" "$SINGULARITY_ROOTFS/tmp"
+cp "NVIDIA-Linux-x86_64-375.66.run" "$SINGULARITY_ROOTFS/tmp"
+cp "cuda_8.0.61_375.26_linux.run" "$SINGULARITY_ROOTFS/tmp"
+cp "links.sh" "$SINGULARITY_ROOTFS/tmp"
+# cp "Anaconda3-4.4.0-Linux-x86_64.sh" "$SINGULARITY_ROOTFS/tmp"
+
+
+
+%runscript
+exec /bin/bash "$@"
+
+
+
+%post
+# this is dumb why do I have to do this twice?
+PATH=/usr/local/./NVIDIA-Linux-x86_64-375.66:/anaconda3/bin:$PATH
+
+apt-get update && apt-get -y upgrade
+apt-get -y install bzip2 build-essential vim curl
+
+driver_version="375.66"
+cuda="cuda_8.0.61_375.26_linux.run"
+cudnn="cudnn-8.0-linux-x64-v6.0.tgz"
+
+sh /tmp/NVIDIA-Linux-x86_64-$driver_version.run -x
+mv NVIDIA-Linux-x86_64-$driver_version /usr/local/
+sh /tmp/links.sh $driver_version
+
+cd /tmp
+sh $cuda  --toolkit --silent
+
+tar xvf /tmp/$cudnn -C /usr/local
+
+curl -LO "https://repo.continuum.io/archive/Anaconda3-4.4.0-Linux-x86_64.sh"
+bash ./Anaconda3-4.4.0-Linux-x86_64.sh -b -p /anaconda3
+conda install pytorch torchvision cuda80 -c soumith -y
